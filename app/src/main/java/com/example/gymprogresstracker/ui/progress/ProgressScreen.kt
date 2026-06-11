@@ -86,7 +86,7 @@ private val seriesColorPalette = listOf(
 
 private fun seriesColor(colorIndex: Int): Color = seriesColorPalette[colorIndex % seriesColorPalette.size]
 
-private val markerInfoKey = object : ExtraStore.Key<Map<Pair<Double, Double>, List<String>>>() {}
+private val markerInfoKey = object : ExtraStore.Key<Map<Double, List<String>>>() {}
 
 // Bypasses Vico's Map<Double,Entry> drawing model which deduplicates same-x entries.
 // Without this, two sets on the same day would collapse to one dot after the entry animation.
@@ -227,7 +227,7 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
                 store[markerInfoKey] = series
                     .flatMap { s ->
                         s.points.map { p ->
-                            (p.date.toEpochDay().toDouble() to p.weightKg) to
+                            p.date.toEpochDay().toDouble() to
                                 "${s.exerciseName}: ${p.weightKg} kg × ${p.reps}"
                         }
                     }
@@ -272,9 +272,8 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
                 val info = context.model.extraStore.getOrNull(markerInfoKey).orEmpty()
                 targets
                     .filterIsInstance<LineCartesianLayerMarkerTarget>()
-                    .flatMap { t -> t.points.map { it.entry.x to it.entry.y } }
-                    .distinct()
-                    .flatMap { key -> info[key].orEmpty() }
+                    .mapNotNull { t -> info[t.x] }
+                    .flatten()
                     .joinToString("\n")
             }
         },
