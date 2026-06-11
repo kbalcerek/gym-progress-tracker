@@ -64,7 +64,7 @@ fun BodyweightScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(title = { Text(stringResource(R.string.nav_bodyweight)) })
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (entries.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_data),

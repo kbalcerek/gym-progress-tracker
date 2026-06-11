@@ -89,7 +89,7 @@ fun WorkoutLogScreen(
                 }
             }
         )
-        Box(modifier = Modifier.weight(1f)) {
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (days.isEmpty()) {
                 Text(
                     text = stringResource(R.string.no_data),
@@ -268,10 +268,14 @@ private fun AddEditSetDialog(
     var weight by rememberSaveable { mutableStateOf(initial?.weightKg?.toString() ?: "") }
     var reps by rememberSaveable { mutableStateOf(initial?.reps?.toString() ?: "") }
     var notes by rememberSaveable { mutableStateOf(initial?.notes ?: "") }
+    var showErrors by remember { mutableStateOf(false) }
 
     val filteredExercises = remember(exerciseQuery, exercises) {
         if (exerciseQuery.isBlank()) exercises
         else exercises.filter { it.name.contains(exerciseQuery, ignoreCase = true) }
+    }
+    val resolvedExercise = selectedExercise ?: exercises.find {
+        it.name.equals(exerciseQuery.trim(), ignoreCase = true)
     }
 
     AlertDialog(
@@ -304,6 +308,10 @@ private fun AddEditSetDialog(
                         },
                         label = { Text(stringResource(R.string.exercise)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(exerciseExpanded) },
+                        isError = showErrors && resolvedExercise == null,
+                        supportingText = if (showErrors && resolvedExercise == null) {
+                            { Text(stringResource(R.string.error_exercise_required)) }
+                        } else null,
                         modifier = Modifier
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable, true)
                             .fillMaxWidth(),
@@ -331,6 +339,10 @@ private fun AddEditSetDialog(
                     onValueChange = { weight = it },
                     label = { Text(stringResource(R.string.weight_kg)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = showErrors && weight.toDoubleOrNull() == null,
+                    supportingText = if (showErrors && weight.toDoubleOrNull() == null) {
+                        { Text(stringResource(R.string.error_weight_invalid)) }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -339,6 +351,10 @@ private fun AddEditSetDialog(
                     onValueChange = { reps = it },
                     label = { Text(stringResource(R.string.reps)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = showErrors && reps.toIntOrNull() == null,
+                    supportingText = if (showErrors && reps.toIntOrNull() == null) {
+                        { Text(stringResource(R.string.error_reps_invalid)) }
+                    } else null,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -354,11 +370,13 @@ private fun AddEditSetDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val ex = selectedExercise ?: exercises.find {
-                        it.name.equals(exerciseQuery.trim(), ignoreCase = true)
-                    } ?: return@TextButton
-                    val w = weight.toDoubleOrNull() ?: return@TextButton
-                    val r = reps.toIntOrNull() ?: return@TextButton
+                    val ex = resolvedExercise
+                    val w = weight.toDoubleOrNull()
+                    val r = reps.toIntOrNull()
+                    if (ex == null || w == null || r == null) {
+                        showErrors = true
+                        return@TextButton
+                    }
                     onSave(selectedDate, ex.id, w, r, notes.trim())
                 }
             ) {
