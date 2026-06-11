@@ -64,6 +64,8 @@ import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.core.cartesian.marker.DefaultCartesianMarker
 import com.patrykandpatrick.vico.core.cartesian.marker.LineCartesianLayerMarkerTarget
+import com.patrykandpatrick.vico.core.cartesian.data.LineCartesianLayerDrawingModel
+import com.patrykandpatrick.vico.core.common.data.CartesianLayerDrawingModelInterpolator
 import com.patrykandpatrick.vico.core.common.data.ExtraStore
 import com.patrykandpatrick.vico.core.common.shape.CorneredShape
 import java.time.LocalDate
@@ -85,6 +87,16 @@ private val seriesColorPalette = listOf(
 private fun seriesColor(colorIndex: Int): Color = seriesColorPalette[colorIndex % seriesColorPalette.size]
 
 private val markerInfoKey = object : ExtraStore.Key<Map<Pair<Double, Double>, List<String>>>() {}
+
+// Bypasses Vico's Map<Double,Entry> drawing model which deduplicates same-x entries.
+// Without this, two sets on the same day would collapse to one dot after the entry animation.
+private val noOpInterpolator =
+    object : CartesianLayerDrawingModelInterpolator<
+        LineCartesianLayerDrawingModel.Entry,
+        LineCartesianLayerDrawingModel> {
+        override fun setModels(old: LineCartesianLayerDrawingModel?, new: LineCartesianLayerDrawingModel?) {}
+        override suspend fun transform(fraction: Float): LineCartesianLayerDrawingModel? = null
+    }
 
 private val scatterRangeProvider = object : CartesianLayerRangeProvider {
     override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
@@ -205,27 +217,21 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
         modelProducer.runTransaction {
             lineSeries {
                 series.forEach { s ->
-                    val dayIndex = mutableMapOf<Long, Int>()
-                    val xValues = s.points.map { p ->
-                        val epochDay = p.date.toEpochDay()
-                        val idx = dayIndex.getOrDefault(epochDay, 0)
-                        dayIndex[epochDay] = idx + 1
-                        epochDay.toFloat() + idx * 0.2f
-                    }
-                    series(x = xValues, y = s.points.map { it.weightKg.toFloat() })
+                    series(
+                        x = s.points.map { it.date.toEpochDay().toFloat() },
+                        y = s.points.map { it.weightKg.toFloat() }
+                    )
                 }
             }
             extras { store ->
-                store[markerInfoKey] = series.flatMap { s ->
-                    val dayIndex = mutableMapOf<Long, Int>()
-                    s.points.map { p ->
-                        val epochDay = p.date.toEpochDay()
-                        val idx = dayIndex.getOrDefault(epochDay, 0)
-                        dayIndex[epochDay] = idx + 1
-                        val x = epochDay.toDouble() + idx * 0.2
-                        (x to p.weightKg) to "${s.exerciseName}: ${p.weightKg} kg × ${p.reps}"
+                store[markerInfoKey] = series
+                    .flatMap { s ->
+                        s.points.map { p ->
+                            (p.date.toEpochDay().toDouble() to p.weightKg) to
+                                "${s.exerciseName}: ${p.weightKg} kg × ${p.reps}"
+                        }
                     }
-                }.groupBy({ it.first }, { it.second })
+                    .groupBy({ it.first }, { it.second })
             }
         }
     }
@@ -279,7 +285,8 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
         chart = rememberCartesianChart(
             rememberLineCartesianLayer(
                 lineProvider = lineProvider,
-                rangeProvider = scatterRangeProvider
+                rangeProvider = scatterRangeProvider,
+                drawingModelInterpolator = noOpInterpolator
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(
@@ -287,8 +294,7 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
                     LocalDate.ofEpochDay(x.toLong()).format(axisDateFormatter)
                 }
             ),
-            marker = marker,
-            getXStep = { 1.0 }
+            marker = marker
         ),
         modelProducer = modelProducer,
         modifier = Modifier
