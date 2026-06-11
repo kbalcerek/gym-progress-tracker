@@ -31,6 +31,9 @@ interface ExerciseDao {
     @Delete
     suspend fun delete(exercise: Exercise)
 
+    @Query("SELECT * FROM exercises WHERE name = :name COLLATE NOCASE LIMIT 1")
+    suspend fun findByName(name: String): Exercise?
+
     @Query("DELETE FROM exercises")
     suspend fun deleteAll()
 }

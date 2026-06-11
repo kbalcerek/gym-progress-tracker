@@ -142,8 +142,8 @@ fun WorkoutLogScreen(
         AddEditSetDialog(
             exercises = exercises,
             onDismiss = { showAddDialog = false },
-            onSave = { date, exerciseId, weight, reps, notes ->
-                vm.addSet(date, exerciseId, weight, reps, notes)
+            onSave = { date, exerciseId, exerciseName, weight, reps, notes ->
+                vm.addSet(date, exerciseId, exerciseName, weight, reps, notes)
                 showAddDialog = false
             }
         )
@@ -154,16 +154,20 @@ fun WorkoutLogScreen(
             exercises = exercises,
             initial = sv,
             onDismiss = { editingSet = null },
-            onSave = { date, exerciseId, weight, reps, notes ->
-                vm.updateSet(WorkoutSet(
-                    id = sv.id,
-                    date = date,
+            onSave = { date, exerciseId, exerciseName, weight, reps, notes ->
+                vm.updateSet(
+                    WorkoutSet(
+                        id = sv.id,
+                        date = date,
+                        exerciseId = sv.exerciseId,
+                        weightKg = weight,
+                        reps = reps,
+                        notes = notes,
+                        setOrder = sv.setOrder
+                    ),
                     exerciseId = exerciseId,
-                    weightKg = weight,
-                    reps = reps,
-                    notes = notes,
-                    setOrder = sv.setOrder
-                ))
+                    exerciseName = exerciseName
+                )
                 editingSet = null
             }
         )
@@ -258,7 +262,7 @@ private fun AddEditSetDialog(
     exercises: List<Exercise>,
     initial: WorkoutSetView? = null,
     onDismiss: () -> Unit,
-    onSave: (LocalDate, Long, Double, Int, String) -> Unit
+    onSave: (LocalDate, Long?, String, Double, Int, String) -> Unit
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(initial?.date ?: LocalDate.now()) }
@@ -277,6 +281,7 @@ private fun AddEditSetDialog(
     val resolvedExercise = selectedExercise ?: exercises.find {
         it.name.equals(exerciseQuery.trim(), ignoreCase = true)
     }
+    val showCreateOption = exerciseQuery.isNotBlank() && resolvedExercise == null
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -308,8 +313,8 @@ private fun AddEditSetDialog(
                         },
                         label = { Text(stringResource(R.string.exercise)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(exerciseExpanded) },
-                        isError = showErrors && resolvedExercise == null,
-                        supportingText = if (showErrors && resolvedExercise == null) {
+                        isError = showErrors && exerciseQuery.isBlank(),
+                        supportingText = if (showErrors && exerciseQuery.isBlank()) {
                             { Text(stringResource(R.string.error_exercise_required)) }
                         } else null,
                         modifier = Modifier
@@ -318,9 +323,19 @@ private fun AddEditSetDialog(
                         singleLine = true
                     )
                     ExposedDropdownMenu(
-                        expanded = exerciseExpanded && filteredExercises.isNotEmpty(),
+                        expanded = exerciseExpanded && (filteredExercises.isNotEmpty() || showCreateOption),
                         onDismissRequest = { exerciseExpanded = false }
                     ) {
+                        if (showCreateOption) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.add_new_exercise_option, exerciseQuery.trim())) },
+                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                onClick = {
+                                    exerciseQuery = exerciseQuery.trim()
+                                    exerciseExpanded = false
+                                }
+                            )
+                        }
                         filteredExercises.forEach { ex ->
                             DropdownMenuItem(
                                 text = { Text(ex.name) },
@@ -370,14 +385,13 @@ private fun AddEditSetDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val ex = resolvedExercise
                     val w = weight.toDoubleOrNull()
                     val r = reps.toIntOrNull()
-                    if (ex == null || w == null || r == null) {
+                    if (exerciseQuery.isBlank() || w == null || r == null) {
                         showErrors = true
                         return@TextButton
                     }
-                    onSave(selectedDate, ex.id, w, r, notes.trim())
+                    onSave(selectedDate, resolvedExercise?.id, exerciseQuery.trim(), w, r, notes.trim())
                 }
             ) {
                 Text(stringResource(R.string.save))

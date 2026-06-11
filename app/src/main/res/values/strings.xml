@@ -47,6 +47,7 @@
     <string name="settings_dropbox_restore_success">Restore successful</string>
     <string name="settings_dropbox_restore_error">Restore failed</string>
     <string name="error_exercise_required">Please select an exercise</string>
+    <string name="add_new_exercise_option">Add \"%1$s\"</string>
     <string name="error_weight_invalid">Enter a valid weight</string>
     <string name="error_reps_invalid">Enter a valid rep count</string>
 </resources>

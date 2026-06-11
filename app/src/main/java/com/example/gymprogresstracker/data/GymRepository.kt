@@ -28,6 +28,12 @@ class GymRepository(private val db: AppDatabase) {
     suspend fun insertExercise(name: String): Long =
         exerciseDao.insert(Exercise(name = name.trim()))
 
+    suspend fun getOrCreateExercise(name: String): Long {
+        val trimmed = name.trim()
+        val id = insertExercise(trimmed)
+        return if (id != -1L) id else exerciseDao.findByName(trimmed)!!.id
+    }
+
     suspend fun updateExercise(exercise: Exercise) = exerciseDao.update(exercise)
     suspend fun deleteExercise(exercise: Exercise) = exerciseDao.delete(exercise)
 

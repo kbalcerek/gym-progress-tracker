@@ -52,17 +52,21 @@ class WorkoutLogViewModel(private val repository: GymRepository) : ViewModel() {
     val exercises: StateFlow<List<Exercise>> = repository.exercises
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun addSet(date: LocalDate, exerciseId: Long, weightKg: Double, reps: Int, notes: String) {
+    fun addSet(date: LocalDate, exerciseId: Long?, exerciseName: String, weightKg: Double, reps: Int, notes: String) {
         viewModelScope.launch {
-            val order = repository.getNextSetOrder(date, exerciseId)
+            val id = exerciseId ?: repository.getOrCreateExercise(exerciseName)
+            val order = repository.getNextSetOrder(date, id)
             repository.insertWorkoutSet(
-                WorkoutSet(date = date, exerciseId = exerciseId, weightKg = weightKg, reps = reps, notes = notes, setOrder = order)
+                WorkoutSet(date = date, exerciseId = id, weightKg = weightKg, reps = reps, notes = notes, setOrder = order)
             )
         }
     }
 
-    fun updateSet(set: WorkoutSet) {
-        viewModelScope.launch { repository.updateWorkoutSet(set) }
+    fun updateSet(set: WorkoutSet, exerciseId: Long?, exerciseName: String) {
+        viewModelScope.launch {
+            val id = exerciseId ?: repository.getOrCreateExercise(exerciseName)
+            repository.updateWorkoutSet(set.copy(exerciseId = id))
+        }
     }
 
     fun deleteSet(set: WorkoutSet) {

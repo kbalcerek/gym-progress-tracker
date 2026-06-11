@@ -47,6 +47,7 @@
     <string name="settings_dropbox_restore_success">Przywracanie zakończone</string>
     <string name="settings_dropbox_restore_error">Błąd przywracania</string>
     <string name="error_exercise_required">Wybierz ćwiczenie</string>
+    <string name="add_new_exercise_option">Dodaj \"%1$s\"</string>
     <string name="error_weight_invalid">Podaj prawidłowy ciężar</string>
     <string name="error_reps_invalid">Podaj prawidłową liczbę powtórzeń</string>
 </resources>
