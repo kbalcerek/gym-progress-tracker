@@ -50,4 +50,7 @@
     <string name="add_new_exercise_option">Add \"%1$s\"</string>
     <string name="error_weight_invalid">Enter a valid weight</string>
     <string name="error_reps_invalid">Enter a valid rep count</string>
+    <string name="error_reps_invalid_multi">Enter rep counts separated by commas or spaces (e.g. 10, 11, 9)</string>
+    <string name="reps_multi_hint">e.g. 10, 11, 9</string>
+    <string name="selected_exercises_count">%1$d selected</string>
 </resources>

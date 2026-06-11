@@ -50,4 +50,7 @@
     <string name="add_new_exercise_option">Dodaj \"%1$s\"</string>
     <string name="error_weight_invalid">Podaj prawidłowy ciężar</string>
     <string name="error_reps_invalid">Podaj prawidłową liczbę powtórzeń</string>
+    <string name="error_reps_invalid_multi">Podaj liczby powtórzeń oddzielone przecinkami lub spacjami (np. 10, 11, 9)</string>
+    <string name="reps_multi_hint">np. 10, 11, 9</string>
+    <string name="selected_exercises_count">Wybrano: %1$d</string>
 </resources>

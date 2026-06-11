@@ -22,13 +22,12 @@ interface WorkoutDao {
     fun getAllSetsWithExercise(): Flow<List<WorkoutSetView>>
 
     @Query("""
-        SELECT ws.date, MAX(ws.weight_kg) AS maxWeightKg
+        SELECT ws.exercise_id AS exerciseId, ws.date, ws.weight_kg AS weightKg, ws.reps
         FROM workout_sets ws
-        WHERE ws.exercise_id = :exerciseId
-        GROUP BY ws.date
-        ORDER BY ws.date ASC
+        WHERE ws.exercise_id IN (:exerciseIds)
+        ORDER BY ws.exercise_id ASC, ws.date ASC, ws.set_order ASC
     """)
-    fun getTopWeightByDate(exerciseId: Long): Flow<List<ExerciseChartPoint>>
+    fun getSetsForExercises(exerciseIds: List<Long>): Flow<List<ExerciseSetPoint>>
 
     @Query("SELECT * FROM workout_sets ORDER BY date ASC, set_order ASC")
     suspend fun getAllRaw(): List<WorkoutSet>

@@ -52,13 +52,15 @@ class WorkoutLogViewModel(private val repository: GymRepository) : ViewModel() {
     val exercises: StateFlow<List<Exercise>> = repository.exercises
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun addSet(date: LocalDate, exerciseId: Long?, exerciseName: String, weightKg: Double, reps: Int, notes: String) {
+    fun addSet(date: LocalDate, exerciseId: Long?, exerciseName: String, weightKg: Double, reps: List<Int>, notes: String) {
         viewModelScope.launch {
             val id = exerciseId ?: repository.getOrCreateExercise(exerciseName)
-            val order = repository.getNextSetOrder(date, id)
-            repository.insertWorkoutSet(
-                WorkoutSet(date = date, exerciseId = id, weightKg = weightKg, reps = reps, notes = notes, setOrder = order)
-            )
+            val startOrder = repository.getNextSetOrder(date, id)
+            reps.forEachIndexed { index, r ->
+                repository.insertWorkoutSet(
+                    WorkoutSet(date = date, exerciseId = id, weightKg = weightKg, reps = r, notes = notes, setOrder = startOrder + index)
+                )
+            }
         }
     }
 

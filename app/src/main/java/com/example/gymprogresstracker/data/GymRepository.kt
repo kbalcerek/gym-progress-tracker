@@ -22,8 +22,8 @@ class GymRepository(private val db: AppDatabase) {
     val workoutSets: Flow<List<WorkoutSetView>> = workoutDao.getAllSetsWithExercise()
     val bodyweightEntries: Flow<List<BodyweightEntry>> = bodyweightDao.getAll()
 
-    fun getTopWeightByDate(exerciseId: Long): Flow<List<ExerciseChartPoint>> =
-        workoutDao.getTopWeightByDate(exerciseId)
+    fun getSetsForExercises(exerciseIds: List<Long>): Flow<List<ExerciseSetPoint>> =
+        workoutDao.getSetsForExercises(exerciseIds)
 
     suspend fun insertExercise(name: String): Long =
         exerciseDao.insert(Exercise(name = name.trim()))

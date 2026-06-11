@@ -66,6 +66,13 @@ import java.time.format.DateTimeFormatter
 
 private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
+private fun parseReps(input: String): List<Int>? {
+    val tokens = input.trim().split(Regex("[,\\s]+")).filter { it.isNotEmpty() }
+    if (tokens.isEmpty()) return null
+    val reps = tokens.map { it.toIntOrNull() ?: return null }
+    return if (reps.all { it > 0 }) reps else null
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutLogScreen(
@@ -142,8 +149,8 @@ fun WorkoutLogScreen(
         AddEditSetDialog(
             exercises = exercises,
             onDismiss = { showAddDialog = false },
-            onSave = { date, exerciseId, exerciseName, weight, reps, notes ->
-                vm.addSet(date, exerciseId, exerciseName, weight, reps, notes)
+            onSave = { date, exerciseId, exerciseName, weight, repsList, notes ->
+                vm.addSet(date, exerciseId, exerciseName, weight, repsList, notes)
                 showAddDialog = false
             }
         )
@@ -154,14 +161,14 @@ fun WorkoutLogScreen(
             exercises = exercises,
             initial = sv,
             onDismiss = { editingSet = null },
-            onSave = { date, exerciseId, exerciseName, weight, reps, notes ->
+            onSave = { date, exerciseId, exerciseName, weight, repsList, notes ->
                 vm.updateSet(
                     WorkoutSet(
                         id = sv.id,
                         date = date,
                         exerciseId = sv.exerciseId,
                         weightKg = weight,
-                        reps = reps,
+                        reps = repsList.first(),
                         notes = notes,
                         setOrder = sv.setOrder
                     ),
@@ -262,8 +269,9 @@ private fun AddEditSetDialog(
     exercises: List<Exercise>,
     initial: WorkoutSetView? = null,
     onDismiss: () -> Unit,
-    onSave: (LocalDate, Long?, String, Double, Int, String) -> Unit
+    onSave: (LocalDate, Long?, String, Double, List<Int>, String) -> Unit
 ) {
+    val isEditing = initial != null
     var showDatePicker by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(initial?.date ?: LocalDate.now()) }
     var selectedExercise by remember { mutableStateOf(exercises.find { it.id == initial?.exerciseId }) }
@@ -361,18 +369,34 @@ private fun AddEditSetDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = reps,
-                    onValueChange = { reps = it },
-                    label = { Text(stringResource(R.string.reps)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError = showErrors && reps.toIntOrNull() == null,
-                    supportingText = if (showErrors && reps.toIntOrNull() == null) {
-                        { Text(stringResource(R.string.error_reps_invalid)) }
-                    } else null,
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                if (isEditing) {
+                    OutlinedTextField(
+                        value = reps,
+                        onValueChange = { reps = it },
+                        label = { Text(stringResource(R.string.reps)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = showErrors && reps.toIntOrNull() == null,
+                        supportingText = if (showErrors && reps.toIntOrNull() == null) {
+                            { Text(stringResource(R.string.error_reps_invalid)) }
+                        } else null,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = reps,
+                        onValueChange = { reps = it },
+                        label = { Text(stringResource(R.string.reps)) },
+                        placeholder = { Text(stringResource(R.string.reps_multi_hint)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        isError = showErrors && parseReps(reps) == null,
+                        supportingText = if (showErrors && parseReps(reps) == null) {
+                            { Text(stringResource(R.string.error_reps_invalid_multi)) }
+                        } else null,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -386,12 +410,12 @@ private fun AddEditSetDialog(
             TextButton(
                 onClick = {
                     val w = weight.toDoubleOrNull()
-                    val r = reps.toIntOrNull()
-                    if (exerciseQuery.isBlank() || w == null || r == null) {
+                    val repsList = if (isEditing) reps.toIntOrNull()?.let(::listOf) else parseReps(reps)
+                    if (exerciseQuery.isBlank() || w == null || repsList == null) {
                         showErrors = true
                         return@TextButton
                     }
-                    onSave(selectedDate, resolvedExercise?.id, exerciseQuery.trim(), w, r, notes.trim())
+                    onSave(selectedDate, resolvedExercise?.id, exerciseQuery.trim(), w, repsList, notes.trim())
                 }
             ) {
                 Text(stringResource(R.string.save))

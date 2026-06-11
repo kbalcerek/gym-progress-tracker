@@ -2,7 +2,9 @@ package com.example.gymprogresstracker.data
 
 import java.time.LocalDate
 
-data class ExerciseChartPoint(
+data class ExerciseSetPoint(
+    val exerciseId: Long,
     val date: LocalDate,
-    val maxWeightKg: Double
+    val weightKg: Double,
+    val reps: Int
 )
