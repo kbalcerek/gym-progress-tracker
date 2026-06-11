@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -60,6 +58,7 @@ import com.patrykandpatrick.vico.compose.common.shape.rounded
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianLayerRangeProvider
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
@@ -86,6 +85,17 @@ private val seriesColorPalette = listOf(
 private fun seriesColor(colorIndex: Int): Color = seriesColorPalette[colorIndex % seriesColorPalette.size]
 
 private val markerInfoKey = object : ExtraStore.Key<Map<Pair<Double, Double>, List<String>>>() {}
+
+private val scatterRangeProvider = object : CartesianLayerRangeProvider {
+    override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
+        val padding = if (minY == maxY) minY * 0.1 else (maxY - minY) * 0.1
+        return (minY - padding).coerceAtLeast(0.0)
+    }
+    override fun getMaxY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
+        val padding = if (minY == maxY) minY * 0.1 else (maxY - minY) * 0.1
+        return maxY + padding
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -195,21 +205,27 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
         modelProducer.runTransaction {
             lineSeries {
                 series.forEach { s ->
-                    series(
-                        x = s.points.map { it.date.toEpochDay().toFloat() },
-                        y = s.points.map { it.weightKg.toFloat() }
-                    )
+                    val dayIndex = mutableMapOf<Long, Int>()
+                    val xValues = s.points.map { p ->
+                        val epochDay = p.date.toEpochDay()
+                        val idx = dayIndex.getOrDefault(epochDay, 0)
+                        dayIndex[epochDay] = idx + 1
+                        epochDay.toFloat() + idx * 0.2f
+                    }
+                    series(x = xValues, y = s.points.map { it.weightKg.toFloat() })
                 }
             }
             extras { store ->
-                store[markerInfoKey] = series
-                    .flatMap { s ->
-                        s.points.map { p ->
-                            (p.date.toEpochDay().toDouble() to p.weightKg) to
-                                "${s.exerciseName}: ${p.weightKg} kg × ${p.reps}"
-                        }
+                store[markerInfoKey] = series.flatMap { s ->
+                    val dayIndex = mutableMapOf<Long, Int>()
+                    s.points.map { p ->
+                        val epochDay = p.date.toEpochDay()
+                        val idx = dayIndex.getOrDefault(epochDay, 0)
+                        dayIndex[epochDay] = idx + 1
+                        val x = epochDay.toDouble() + idx * 0.2
+                        (x to p.weightKg) to "${s.exerciseName}: ${p.weightKg} kg × ${p.reps}"
                     }
-                    .groupBy({ it.first }, { it.second })
+                }.groupBy({ it.first }, { it.second })
             }
         }
     }
@@ -261,14 +277,18 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
 
     CartesianChartHost(
         chart = rememberCartesianChart(
-            rememberLineCartesianLayer(lineProvider = lineProvider),
+            rememberLineCartesianLayer(
+                lineProvider = lineProvider,
+                rangeProvider = scatterRangeProvider
+            ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(
                 valueFormatter = CartesianValueFormatter { _, x, _ ->
                     LocalDate.ofEpochDay(x.toLong()).format(axisDateFormatter)
                 }
             ),
-            marker = marker
+            marker = marker,
+            getXStep = { 1.0 }
         ),
         modelProducer = modelProducer,
         modifier = Modifier
