@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,7 +7,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-val dropboxAppKey: String = (project.findProperty("dropbox.app.key") as? String) ?: "placeholder"
+val localProperties = Properties().also { props ->
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { props.load(it) }
+}
+val dropboxAppKey: String = localProperties.getProperty("dropbox.app.key") ?: "placeholder"
 
 android {
     namespace = "com.example.gymprogresstracker"
