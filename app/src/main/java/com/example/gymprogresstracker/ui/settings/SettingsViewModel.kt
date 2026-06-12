@@ -56,6 +56,17 @@ class SettingsViewModel(private val backupManager: BackupManager) : ViewModel() 
         }
     }
 
+    suspend fun buildBackupJson(): String = backupManager.exportJson()
+
+    fun importBackup(json: String, onSuccess: String, onError: String) {
+        viewModelScope.launch {
+            _backupStatus.value = BackupStatus.Loading
+            val result = backupManager.importJson(json)
+            _backupStatus.value = if (result.isSuccess) BackupStatus.Success(onSuccess)
+            else BackupStatus.Error(result.exceptionOrNull()?.message ?: onError)
+        }
+    }
+
     fun clearStatus() {
         _backupStatus.value = BackupStatus.Idle
     }

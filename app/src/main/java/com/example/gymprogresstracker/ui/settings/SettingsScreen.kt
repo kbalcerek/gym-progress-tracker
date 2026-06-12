@@ -2,6 +2,8 @@ package com.example.gymprogresstracker.ui.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +22,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -45,6 +47,7 @@ import com.example.gymprogresstracker.BuildConfig
 import com.example.gymprogresstracker.R
 import com.example.gymprogresstracker.data.sync.BackupManager
 import kotlinx.coroutines.launch
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -63,11 +66,32 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
 
     var showRestoreConfirm by remember { mutableStateOf(false) }
+    var showImportConfirm by remember { mutableStateOf(false) }
+    var pendingImportJson by remember { mutableStateOf<String?>(null) }
+
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val json = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()?.readText()
+                if (json != null) {
+                    pendingImportJson = json
+                    showImportConfirm = true
+                }
+            }
+        }
+    }
 
     val successMsg = stringResource(R.string.settings_dropbox_backup_success)
     val errorMsg = stringResource(R.string.settings_dropbox_backup_error)
     val restoreSuccessMsg = stringResource(R.string.settings_dropbox_restore_success)
     val restoreErrorMsg = stringResource(R.string.settings_dropbox_restore_error)
+    val importSuccessMsg = stringResource(R.string.settings_import_success)
+    val importErrorMsg = stringResource(R.string.settings_import_error)
+    val backupShareSubject = stringResource(R.string.settings_backup_share_subject)
+    val backupShareTitle = stringResource(R.string.settings_backup_share_title)
 
     LaunchedEffect(backupStatus) {
         when (val s = backupStatus) {
@@ -131,6 +155,58 @@ fun SettingsScreen(
                             }
                         )
                         Text(stringResource(R.string.settings_language_pl))
+                    }
+                }
+            }
+
+            // Local backup section
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = stringResource(R.string.settings_local_backup),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val json = vm.buildBackupJson()
+                                    val dir = File(context.cacheDir, "backups").apply { mkdirs() }
+                                    val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                    val file = File(dir, "gym-backup-$dateStr.json")
+                                    file.writeText(json)
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        file
+                                    )
+                                    val send = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/json"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_SUBJECT, backupShareSubject)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(send, backupShareTitle))
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = backupStatus !is BackupStatus.Loading
+                        ) {
+                            Text(stringResource(R.string.settings_backup_to_email))
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                importFileLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = backupStatus !is BackupStatus.Loading
+                        ) {
+                            Text(stringResource(R.string.settings_import_file))
+                        }
                     }
                 }
             }
@@ -236,6 +312,34 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRestoreConfirm = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showImportConfirm) {
+        AlertDialog(
+            onDismissRequest = {
+                showImportConfirm = false
+                pendingImportJson = null
+            },
+            title = { Text(stringResource(R.string.settings_import_file)) },
+            text = { Text(stringResource(R.string.settings_import_confirm)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImportJson?.let { json ->
+                        vm.importBackup(json, importSuccessMsg, importErrorMsg)
+                    }
+                    showImportConfirm = false
+                    pendingImportJson = null
+                }) { Text(stringResource(R.string.save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showImportConfirm = false
+                    pendingImportJson = null
+                }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

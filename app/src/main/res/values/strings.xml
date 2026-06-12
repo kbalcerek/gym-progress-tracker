@@ -53,4 +53,12 @@
     <string name="error_reps_invalid_multi">Enter rep counts separated by commas or spaces (e.g. 10, 11, 9)</string>
     <string name="reps_multi_hint">e.g. 10, 11, 9</string>
     <string name="selected_exercises_count">%1$d selected</string>
+    <string name="settings_local_backup">Local Backup</string>
+    <string name="settings_backup_to_email">Backup to Email</string>
+    <string name="settings_import_file">Import from File</string>
+    <string name="settings_backup_share_subject">Gym Progress Tracker backup</string>
+    <string name="settings_backup_share_title">Share backup via…</string>
+    <string name="settings_import_confirm">This will replace all local data with the selected file. Continue?</string>
+    <string name="settings_import_success">Import successful</string>
+    <string name="settings_import_error">Import failed</string>
 </resources>

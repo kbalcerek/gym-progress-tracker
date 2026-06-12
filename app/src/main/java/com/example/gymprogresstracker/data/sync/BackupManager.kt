@@ -41,4 +41,13 @@ class BackupManager(
             Result.failure(e)
         }
     }
+
+    suspend fun exportJson(): String = repository.exportToJson()
+
+    suspend fun importJson(json: String): Result<Unit> = try {
+        repository.importFromJson(json)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
 }

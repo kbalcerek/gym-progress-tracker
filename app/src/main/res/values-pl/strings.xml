@@ -53,4 +53,12 @@
     <string name="error_reps_invalid_multi">Podaj liczby powtórzeń oddzielone przecinkami lub spacjami (np. 10, 11, 9)</string>
     <string name="reps_multi_hint">np. 10, 11, 9</string>
     <string name="selected_exercises_count">Wybrano: %1$d</string>
+    <string name="settings_local_backup">Kopia lokalna</string>
+    <string name="settings_backup_to_email">Kopia na email</string>
+    <string name="settings_import_file">Importuj z pliku</string>
+    <string name="settings_backup_share_subject">Kopia zapasowa Gym Progress Tracker</string>
+    <string name="settings_backup_share_title">Udostępnij kopię przez…</string>
+    <string name="settings_import_confirm">Spowoduje to zastąpienie wszystkich lokalnych danych wybranym plikiem. Kontynuować?</string>
+    <string name="settings_import_success">Import zakończony</string>
+    <string name="settings_import_error">Błąd importu</string>
 </resources>
