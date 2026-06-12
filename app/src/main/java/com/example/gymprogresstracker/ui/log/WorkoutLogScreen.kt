@@ -209,7 +209,8 @@ private fun DayHeader(date: LocalDate) {
 }
 
 private fun formatWeight(kg: Double): String =
-    if (kg % 1.0 == 0.0) "${kg.toInt()}kg" else "${kg}kg"
+    if (kg % 1.0 == 0.0) "${kg.toInt()}" else "${kg}"
+    // if (kg % 1.0 == 0.0) "${kg.toInt()}kg" else "${kg}kg"
 
 @Composable
 private fun ExerciseGroupItem(
@@ -249,7 +250,7 @@ private fun ExerciseGroupItem(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = group.sets.joinToString(", ") { it.notes },
+                text = group.sets.mapNotNull { it.notes.takeIf(String::isNotBlank) }.joinToString(", "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1.2f),
