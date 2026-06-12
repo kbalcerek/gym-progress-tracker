@@ -64,8 +64,6 @@ import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.core.cartesian.marker.DefaultCartesianMarker
 import com.patrykandpatrick.vico.core.cartesian.marker.LineCartesianLayerMarkerTarget
-import com.patrykandpatrick.vico.core.cartesian.data.LineCartesianLayerDrawingModel
-import com.patrykandpatrick.vico.core.common.data.CartesianLayerDrawingModelInterpolator
 import com.patrykandpatrick.vico.core.common.data.ExtraStore
 import com.patrykandpatrick.vico.core.common.shape.CorneredShape
 import java.time.LocalDate
@@ -87,16 +85,6 @@ private val seriesColorPalette = listOf(
 private fun seriesColor(colorIndex: Int): Color = seriesColorPalette[colorIndex % seriesColorPalette.size]
 
 private val markerInfoKey = object : ExtraStore.Key<Map<Double, List<String>>>() {}
-
-// Bypasses Vico's Map<Double,Entry> drawing model which deduplicates same-x entries.
-// Without this, two sets on the same day would collapse to one dot after the entry animation.
-private val noOpInterpolator =
-    object : CartesianLayerDrawingModelInterpolator<
-        LineCartesianLayerDrawingModel.Entry,
-        LineCartesianLayerDrawingModel> {
-        override fun setModels(old: LineCartesianLayerDrawingModel?, new: LineCartesianLayerDrawingModel?) {}
-        override suspend fun transform(fraction: Float): LineCartesianLayerDrawingModel? = null
-    }
 
 private val scatterRangeProvider = object : CartesianLayerRangeProvider {
     override fun getMinY(minY: Double, maxY: Double, extraStore: ExtraStore): Double {
@@ -209,17 +197,39 @@ private fun BodyweightChart(entries: List<BodyweightEntry>) {
     )
 }
 
+// Represents one Vico series: the k-th entry from each day of a given exercise.
+// Splitting same-day entries across slots avoids Vico's Map<x,entry> deduplication
+// (which keeps only the last value per x within a single series).
+private data class SlottedSeries(val colorIndex: Int, val points: List<Pair<Long, Float>>)
+
+private fun buildSlottedSeries(series: List<ExerciseSeriesData>): List<SlottedSeries> =
+    series.flatMap { s ->
+        val byDay = s.points.groupBy { it.date.toEpochDay() }
+        val maxSlots = byDay.values.maxOfOrNull { it.size } ?: 0
+        (0 until maxSlots).mapNotNull { slot ->
+            val pts = byDay.entries
+                .mapNotNull { (day, entries) -> entries.getOrNull(slot)?.let { day to it.weightKg.toFloat() } }
+                .sortedBy { it.first }
+            if (pts.isNotEmpty()) SlottedSeries(s.colorIndex, pts) else null
+        }
+    }
+
 @Composable
 private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
     val modelProducer = remember { CartesianChartModelProducer() }
 
-    LaunchedEffect(series) {
+    // Split same-day entries into separate Vico series (slot 0, slot 1, …).
+    // Each Vico series has at most one entry per date, so Vico never deduplicates,
+    // and the rangeProvider + animation pipeline work normally.
+    val slottedSeries = remember(series) { buildSlottedSeries(series) }
+
+    LaunchedEffect(slottedSeries) {
         modelProducer.runTransaction {
             lineSeries {
-                series.forEach { s ->
+                slottedSeries.forEach { ss ->
                     series(
-                        x = s.points.map { it.date.toEpochDay().toFloat() },
-                        y = s.points.map { it.weightKg.toFloat() }
+                        x = ss.points.map { it.first.toFloat() },
+                        y = ss.points.map { it.second }
                     )
                 }
             }
@@ -236,15 +246,15 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
         }
     }
 
-    val lineProvider = remember(series) {
+    val lineProvider = remember(slottedSeries) {
         LineCartesianLayer.LineProvider.series(
-            series.map { s ->
+            slottedSeries.map { ss ->
                 LineCartesianLayer.Line(
                     fill = LineCartesianLayer.LineFill.single(fill(Color.Transparent)),
                     pointProvider = LineCartesianLayer.PointProvider.single(
                         LineCartesianLayer.point(
                             shapeComponent(
-                                fill = fill(seriesColor(s.colorIndex)),
+                                fill = fill(seriesColor(ss.colorIndex)),
                                 shape = CorneredShape.Pill
                             ),
                             8.dp
@@ -277,7 +287,7 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
                     .joinToString("\n")
             }
         },
-        labelPosition = DefaultCartesianMarker.LabelPosition.Top
+        labelPosition = DefaultCartesianMarker.LabelPosition.AroundPoint
     )
 
     CartesianChartHost(
@@ -285,7 +295,6 @@ private fun ExerciseScatterChart(series: List<ExerciseSeriesData>) {
             rememberLineCartesianLayer(
                 lineProvider = lineProvider,
                 rangeProvider = scatterRangeProvider,
-                drawingModelInterpolator = noOpInterpolator
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(
