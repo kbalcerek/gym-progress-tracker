@@ -1,15 +1,14 @@
 package com.example.gymprogresstracker.ui.log
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,10 +18,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -46,6 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -86,7 +86,6 @@ fun WorkoutLogScreen(
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingSet by remember { mutableStateOf<WorkoutSetView?>(null) }
     var deletingSet by remember { mutableStateOf<WorkoutSet?>(null) }
-
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text(stringResource(R.string.nav_log)) },
@@ -110,14 +109,11 @@ fun WorkoutLogScreen(
                             DayHeader(date = day.date)
                         }
                         day.exercises.forEach { exerciseGroup ->
-                            item(key = "exGroup_${day.date}_${exerciseGroup.exerciseId}") {
-                                ExerciseGroupHeader(name = exerciseGroup.exerciseName)
-                            }
-                            items(exerciseGroup.sets, key = { "set_${it.id}" }) { setView ->
-                                SetRow(
-                                    setView = setView,
-                                    onEdit = { editingSet = setView },
-                                    onDelete = {
+                            item(key = "group_${day.date}_${exerciseGroup.exerciseId}") {
+                                ExerciseGroupItem(
+                                    group = exerciseGroup,
+                                    onEdit = { editingSet = it },
+                                    onDelete = { setView ->
                                         deletingSet = WorkoutSet(
                                             id = setView.id,
                                             date = setView.date,
@@ -212,14 +208,69 @@ private fun DayHeader(date: LocalDate) {
     HorizontalDivider()
 }
 
+private fun formatWeight(kg: Double): String =
+    if (kg % 1.0 == 0.0) "${kg.toInt()}kg" else "${kg}kg"
+
 @Composable
-private fun ExerciseGroupHeader(name: String) {
-    Text(
-        text = name,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-    )
+private fun ExerciseGroupItem(
+    group: WorkoutExerciseGroup,
+    onEdit: (WorkoutSetView) -> Unit,
+    onDelete: (WorkoutSetView) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = group.exerciseName,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1.4f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = group.sets.joinToString(", ") { formatWeight(it.weightKg) },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = group.sets.joinToString(", ") { it.reps.toString() },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(0.8f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = group.sets.joinToString(", ") { it.notes },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1.2f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null
+            )
+        }
+        if (expanded) {
+            group.sets.forEach { setView ->
+                SetRow(
+                    setView = setView,
+                    onEdit = { onEdit(setView) },
+                    onDelete = { onDelete(setView) }
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -242,7 +293,7 @@ private fun SetRow(
             modifier = Modifier.width(48.dp)
         )
         Text(
-            text = "${setView.weightKg} kg × ${setView.reps}",
+            text = "${formatWeight(setView.weightKg)} × ${setView.reps}",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f)
         )
